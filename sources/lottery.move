@@ -116,6 +116,44 @@ module sui_lotto::lottery {
         transfer::share_object(lottery);
     }
 
+    // === Player Functions ===
+    /// Purchase ticket(s) with exact SUI payment
+    /// Each ticket_price worth of SUI = 1 ticket
+    public fun buy_ticket(
+        lottery: &mut Lottery,
+        payment: Coin<SUI>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Validate lottery is active and deadline not passed
+        assert!(lottery.status == STATUS_ACTIVE, ELotteryNotActive);
+        assert!(clock.timestamp_ms() < lottery.deadline, EDeadlinePassed);
+
+        let payment_value = coin::value(&payment);
+        assert!(payment_value >= lottery.ticket_price, EInvalidTicketPrice);
+        assert!(payment_value % lottery.ticket_price == 0, EInvalidTicketPrice);
+
+        let tickets_bought = payment_value / lottery.ticket_price;
+        let buyer = ctx.sender();
+
+        // Add buyer address for each ticket purchased
+        let mut i = 0;
+        while (i < tickets_bought) {
+            vector::push_back(&mut lottery.participants, buyer);
+            i = i + 1;
+        };
+
+        // Add payment to prize pool
+        coin::put(&mut lottery.balance, payment);
+
+        event::emit(TicketPurchasedEvent {
+            lottery_id: object::id(lottery),
+            buyer,
+            tickets_bought,
+            total_pool: balance::value(&lottery.balance),
+        });
+    }
+
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
