@@ -265,6 +265,47 @@ module sui_lotto::lottery {
         });
     }
 
+    /// Claim refund if lottery deadline passed with < 2 participants
+    #[allow(lint(self_transfer))]
+    public fun claim_refund(
+        lottery: &mut Lottery,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Validate refund conditions
+        assert!(lottery.status == STATUS_ACTIVE, ELotteryAlreadyCompleted);
+        assert!(clock.timestamp_ms() >= lottery.deadline, ERefundNotAvailable);
+        assert!(vector::length(&lottery.participants) < MIN_PARTICIPANTS, ERefundNotAvailable);
+
+        let claimant = ctx.sender();
+
+        // Count tickets owned by claimant and remove them
+        let mut refund_tickets = 0u64;
+        let mut i = 0;
+        while (i < vector::length(&lottery.participants)) {
+            if (*vector::borrow(&lottery.participants, i) == claimant) {
+                vector::remove(&mut lottery.participants, i);
+                refund_tickets = refund_tickets + 1;
+                // Don't increment i since we removed an element
+            } else {
+                i = i + 1;
+            };
+        };
+
+        assert!(refund_tickets > 0, ENotAParticipant);
+
+        // Calculate and transfer refund
+        let refund_amount = refund_tickets * lottery.ticket_price;
+        let refund = coin::take(&mut lottery.balance, refund_amount, ctx);
+        transfer::public_transfer(refund, claimant);
+
+        event::emit(RefundClaimedEvent {
+            lottery_id: object::id(lottery),
+            claimant,
+            amount: refund_amount,
+        });
+    }
+
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
