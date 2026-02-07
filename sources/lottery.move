@@ -80,6 +80,42 @@ module sui_lotto::lottery {
         );
     }
 
+    // === Admin Functions ===
+    /// Create a new lottery round
+    /// - ticket_price: Price per ticket in MIST
+    /// - deadline: Unix timestamp in milliseconds when lottery ends
+    public fun create_lottery(
+        _cap: &AdminCap,
+        ticket_price: u64,
+        deadline: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Validate deadline is in the future
+        assert!(deadline > clock.timestamp_ms(), EInvalidDeadline);
+        // Validate ticket price is non-zero
+        assert!(ticket_price > 0, EInvalidTicketPrice);
+
+        let lottery = Lottery {
+            id: object::new(ctx),
+            ticket_price,
+            balance: balance::zero(),
+            participants: vector::empty(),
+            deadline,
+            status: STATUS_ACTIVE,
+            winners: vector::empty(),
+            admin_fee_bps: ADMIN_FEE_BPS,
+        };
+
+        event::emit(LotteryCreatedEvent {
+            lottery_id: object::id(&lottery),
+            ticket_price,
+            deadline,
+        });
+
+        transfer::share_object(lottery);
+    }
+
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
