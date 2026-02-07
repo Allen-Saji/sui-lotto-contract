@@ -1,4 +1,8 @@
+/// SuiLotto - A decentralized lottery protocol on Sui blockchain
+/// Players purchase tickets, random winners share 98%, admin gets 2%
+/// Winner count scales with participants: 1 (2-5), 2 (6-9), 3 (10-99), 5 (100+)
 module sui_lotto::lottery {
+    // === Imports ===
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
@@ -20,27 +24,38 @@ module sui_lotto::lottery {
     // === Constants ===
     const STATUS_ACTIVE: u8 = 0;
     const STATUS_COMPLETED: u8 = 1;
-    const ADMIN_FEE_BPS: u16 = 200;
+    const ADMIN_FEE_BPS: u16 = 200; // 2% = 200 basis points
     const BPS_DENOMINATOR: u64 = 10000;
     const MIN_PARTICIPANTS: u64 = 2;
 
-    const THRESHOLD_2_WINNERS: u64 = 6;
-    const THRESHOLD_3_WINNERS: u64 = 10;
-    const THRESHOLD_5_WINNERS: u64 = 100;
+    // Winner thresholds
+    const THRESHOLD_2_WINNERS: u64 = 6;   // 6-9 players = 2 winners
+    const THRESHOLD_3_WINNERS: u64 = 10;  // 10-99 players = 3 winners
+    const THRESHOLD_5_WINNERS: u64 = 100; // 100+ players = 5 winners
 
     // === Structs ===
+    /// Capability granting admin permissions
+    /// Created once on deployment, transferable
     public struct AdminCap has key, store {
         id: UID,
     }
 
+    /// Main lottery object - shared for permissionless participation
     public struct Lottery has key {
         id: UID,
+        /// Price per ticket in MIST (1 SUI = 1_000_000_000 MIST)
         ticket_price: u64,
+        /// Accumulated prize pool
         balance: Balance<SUI>,
+        /// List of ticket holders (duplicates allowed for multiple tickets)
         participants: vector<address>,
+        /// Epoch timestamp when lottery ends (milliseconds)
         deadline: u64,
+        /// 0 = Active, 1 = Completed
         status: u8,
+        /// Winner addresses, set after draw
         winners: vector<address>,
+        /// Admin fee in basis points (200 = 2%)
         admin_fee_bps: u16,
     }
 
@@ -73,6 +88,7 @@ module sui_lotto::lottery {
     }
 
     // === Init ===
+    /// Creates AdminCap on deployment and transfers to deployer
     fun init(ctx: &mut TxContext) {
         transfer::transfer(
             AdminCap { id: object::new(ctx) },
