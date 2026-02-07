@@ -306,6 +306,39 @@ module sui_lotto::lottery {
         });
     }
 
+    // === View Functions ===
+    public fun get_pool_size(lottery: &Lottery): u64 {
+        balance::value(&lottery.balance)
+    }
+
+    public fun get_participant_count(lottery: &Lottery): u64 {
+        vector::length(&lottery.participants)
+    }
+
+    public fun get_deadline(lottery: &Lottery): u64 {
+        lottery.deadline
+    }
+
+    public fun is_active(lottery: &Lottery, clock: &Clock): bool {
+        lottery.status == STATUS_ACTIVE && clock.timestamp_ms() < lottery.deadline
+    }
+
+    public fun get_ticket_price(lottery: &Lottery): u64 {
+        lottery.ticket_price
+    }
+
+    public fun get_winners(lottery: &Lottery): vector<address> {
+        lottery.winners
+    }
+
+    public fun get_expected_winner_count(participant_count: u64): u8 {
+        get_winner_count(participant_count)
+    }
+
+    public fun get_status(lottery: &Lottery): u8 {
+        lottery.status
+    }
+
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
